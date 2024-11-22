@@ -10,8 +10,8 @@ Original file is located at
 import numpy as np
 import pandas as pd
 
-match = pd.read_csv('/content/matches.csv')
-delivery = pd.read_csv('/content/deliveries.csv')
+match = pd.read_csv('matches.csv')
+delivery = pd.read_csv('deliveries.csv')
 
 match.head()
 
