@@ -1,57 +1,61 @@
 import streamlit as st
 import pickle
-import pandas as pd
+import numpy as np
 
-teams = ['Sunrisers Hyderabad',
- 'Mumbai Indians',
- 'Royal Challengers Bangalore',
- 'Kolkata Knight Riders',
- 'Kings XI Punjab',
- 'Chennai Super Kings',
- 'Rajasthan Royals',
- 'Delhi Capitals']
+# Load the trained model
+model = pickle.load(open('pipe.pkl', 'rb'))
 
-cities = ['Hyderabad', 'Bangalore', 'Mumbai', 'Indore', 'Kolkata', 'Delhi',
-       'Chandigarh', 'Jaipur', 'Chennai', 'Cape Town', 'Port Elizabeth',
-       'Durban', 'Centurion', 'East London', 'Johannesburg', 'Kimberley',
-       'Bloemfontein', 'Ahmedabad', 'Cuttack', 'Nagpur', 'Dharamsala',
-       'Visakhapatnam', 'Pune', 'Raipur', 'Ranchi', 'Abu Dhabi',
-       'Sharjah', 'Mohali', 'Bengaluru']
+# Input form
+st.title("Cricket Match Winning Probability Predictor")
 
-pipe = pickle.load(open('pipe.pkl','rb'))
-st.title('IPL Win Predictor')
+# Input fields
+teams = [
+    'Sunrisers Hyderabad',
+    'Mumbai Indians',
+    'Royal Challengers Bangalore',
+    'Kolkata Knight Riders',
+    'Kings XI Punjab',
+    'Chennai Super Kings',
+    'Rajasthan Royals',
+    'Delhi Capitals'
+]
 
-col1, col2 = st.columns(2)
+cities = [
+    'Hyderabad', 'Mumbai', 'Bangalore', 'Kolkata', 'Chennai', 'Delhi', 'Jaipur'
+]
 
-with col1:
-    batting_team = st.selectbox('Select the batting team',sorted(teams))
-with col2:
-    bowling_team = st.selectbox('Select the bowling team',sorted(teams))
+st.sidebar.header("Input Match Details")
+batting_team = st.sidebar.selectbox("Batting Team", teams)
+bowling_team = st.sidebar.selectbox("Bowling Team", teams)
+host_city = st.sidebar.selectbox("Host City", cities)
+target = st.sidebar.number_input("Target Score", min_value=1, step=1)
+overs_completed = st.sidebar.slider("Overs Completed", 0.0, 20.0, step=0.1)
+wickets_out = st.sidebar.slider("Wickets Out", 0, 10, step=1)
 
-selected_city = st.selectbox('Select host city',sorted(cities))
+# Predict button
+if st.sidebar.button("Predict Winning Probability"):
+    balls_left = int((20 - overs_completed) * 6)
+    runs_left = target
+    crr = (target - runs_left) / overs_completed if overs_completed > 0 else 0
+    rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
 
-target = st.number_input('Target')
+    input_data = np.array([[
+        batting_team,
+        bowling_team,
+        host_city,
+        runs_left,
+        balls_left,
+        10 - wickets_out,
+        target,
+        crr,
+        rrr
+    ]])
 
-col3,col4,col5 = st.columns(3)
+    # Get prediction probabilities
+    probabilities = model.predict_proba(input_data)[0]
+    bowling_win_prob = probabilities[0] * 100
+    batting_win_prob = probabilities[1] * 100
 
-with col3:
-    score = st.number_input('Score')
-with col4:
-    overs = st.number_input('Overs completed')
-with col5:
-    wickets = st.number_input('Wickets out')
-
-if st.button('Predict Probability'):
-    runs_left = target - score
-    balls_left = 120 - (overs*6)
-    wickets = 10 - wickets
-    crr = score/overs
-    rrr = (runs_left*6)/balls_left
-
-    input_df = pd.DataFrame({'batting_team':[batting_team],'bowling_team':[bowling_team],'city':[selected_city],'runs_left':[runs_left],'balls_left':[balls_left],'wickets':[wickets],'total_runs_x':[target],'crr':[crr],'rrr':[rrr]})
-
-    result = pipe.predict_proba(input_df)
-    loss = result[0][0]
-    win = result[0][1]
-    st.header(batting_team + "- " + str(round(win*100)) + "%")
-    st.header(bowling_team + "- " + str(round(loss*100)) + "%")
+    # Display results
+    st.write(f"### Batting Team Winning Probability: {batting_win_prob:.2f}%")
+    st.write(f"### Bowling Team Winning Probability: {bowling_win_prob:.2f}%")
